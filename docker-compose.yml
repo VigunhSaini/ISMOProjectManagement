@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ismo_postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+      POSTGRES_DB: ismo_pms
+    ports:
+      - '5433:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ismo_backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      DATABASE_URL: postgresql://postgres:postgrespassword@postgres:5432/ismo_pms
+      DIRECT_URL: postgresql://postgres:postgrespassword@postgres:5432/ismo_pms
+      JWT_SECRET: super-secure-docker-compose-secret-key-at-least-64-characters-long
+      JWT_EXPIRES_IN: 7d
+      CORS_ORIGINS: http://localhost:3000
+    ports:
+      - '5000:5000'
+
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    container_name: ismo_web
+    depends_on:
+      - backend
+    ports:
+      - '3000:80'
+
+volumes:
+  pgdata:
